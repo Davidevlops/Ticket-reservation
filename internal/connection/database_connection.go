@@ -8,17 +8,21 @@ import (
 	"github.com/jackc/pgx"
 )
 
-func DatabaseConnection() (*pgx.Conn, error) {
+func DatabasePoolConnection() (*pgx.ConnPool, error) {
 	cfg, err := config.DbConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get database configuration: %w", err)
 	}
 
-	// Explicit conversion back to pgx.ConnConfig
-	conn, err := pgx.Connect(pgx.ConnConfig(cfg))
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to database: %w", err)
+	poolCfg := pgx.ConnPoolConfig{
+		ConnConfig:     pgx.ConnConfig(cfg.ConnConfig), // explicit conversion
+		MaxConnections: cfg.MaxConnections,
 	}
 
-	return conn, nil
+	pool, err := pgx.NewConnPool(poolCfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create database pool: %w", err)
+	}
+
+	return pool, nil
 }

@@ -11,15 +11,31 @@ import (
 // Dbconfig is a thin wrapper around pgx.ConnConfig
 type Dbconfig pgx.ConnConfig
 
-func DbConfig() (Dbconfig, error) {
+// DbPoolConfig wraps pgx.ConnPoolConfig to include pool settings
+type DbPoolConfig struct {
+	ConnConfig     Dbconfig
+	MaxConnections int
+}
+
+func DbConfig() (DbPoolConfig, error) {
 	portStr := os.Getenv("DB_PORT")
 	if portStr == "" {
-		return Dbconfig{}, fmt.Errorf("DB_PORT is not set")
+		return DbPoolConfig{}, fmt.Errorf("DB_PORT is not set")
 	}
 
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
-		return Dbconfig{}, fmt.Errorf("invalid DB_PORT: %w", err)
+		return DbPoolConfig{}, fmt.Errorf("invalid DB_PORT: %w", err)
+	}
+
+	maxConnStr := os.Getenv("DB_MAX_CONNECTIONS")
+	if maxConnStr == "" {
+		maxConnStr = "10" // sensible default
+	}
+
+	maxConnections, err := strconv.Atoi(maxConnStr)
+	if err != nil {
+		return DbPoolConfig{}, fmt.Errorf("invalid DB_MAX_CONNECTIONS: %w", err)
 	}
 
 	cfg := pgx.ConnConfig{
@@ -31,8 +47,11 @@ func DbConfig() (Dbconfig, error) {
 	}
 
 	if cfg.Host == "" || cfg.User == "" || cfg.Database == "" {
-		return Dbconfig{}, fmt.Errorf("missing required database environment variables")
+		return DbPoolConfig{}, fmt.Errorf("missing required database environment variables")
 	}
 
-	return Dbconfig(cfg), nil
+	return DbPoolConfig{
+		ConnConfig:     Dbconfig(cfg),
+		MaxConnections: maxConnections,
+	}, nil
 }

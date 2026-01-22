@@ -1,13 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"log"
-	"net/http"
 	"os"
 
 	"go-backend-app/internal/connection"
 
+	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
 
@@ -18,16 +17,11 @@ func main() {
 	}
 
 	// Initialize database connection
-	dbConn, err := connection.DatabaseConnection()
+	dbConn, err := connection.DatabasePoolConnection()
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer dbConn.Close()
-
-	// HTTP handler
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Hello World! Nice meeting you on %s", r.Host)
-	})
 
 	// Server port
 	port := os.Getenv("PORT")
@@ -35,10 +29,24 @@ func main() {
 		port = "10000"
 	}
 
+	// Initialize Gin
+	r := gin.Default()
+
+	// Health check
+	r.GET("/ping", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "pong",
+		})
+	})
+	r.Use(func(c *gin.Context) {
+		c.Set("db", dbConn)
+		c.Next()
+	})
+
 	log.Printf("Server listening on port %s\n", port)
 
-	// Start HTTP server
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
+	// Start HTTP server (blocking)
+	if err := r.Run(":" + port); err != nil {
 		log.Fatal("HTTP server failed:", err)
 	}
 }
