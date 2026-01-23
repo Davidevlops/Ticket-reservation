@@ -1,4 +1,4 @@
-module go-backend-app
+module Ticket-reservation-system
 
 go 1.24.2
 
